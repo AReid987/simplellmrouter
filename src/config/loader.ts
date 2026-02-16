@@ -69,16 +69,47 @@ async function loadAndParseConfigFile(filePath: string): Promise<unknown> {
 }
 
 /**
- * Loads the application configuration file with environment-specific fallback chain.
+ * Deep merges two objects, with source values overriding base values.
  *
- * Fallback chain (in order):
- * 1. config/providers.{environment}.yaml
- * 2. config/providers.yaml
- * 3. config/providers.default.yaml
+ * @param base - The base object
+ * @param source - The object to merge in (takes precedence)
+ * @returns The merged object
+ */
+function deepMerge(base: unknown, source: unknown): unknown {
+  if (source === null || source === undefined) {
+    return base;
+  }
+  if (base === null || base === undefined) {
+    return source;
+  }
+  if (typeof source !== 'object' || typeof base !== 'object') {
+    return source;
+  }
+  if (Array.isArray(source) || Array.isArray(base)) {
+    return source;
+  }
+
+  const result = { ...base as Record<string, unknown> };
+  for (const key of Object.keys(source as Record<string, unknown>)) {
+    result[key] = deepMerge(
+      (base as Record<string, unknown>)[key],
+      (source as Record<string, unknown>)[key]
+    );
+  }
+  return result;
+}
+
+/**
+ * Loads the application configuration file with environment-specific overrides.
+ *
+ * Loading strategy:
+ * 1. Always load config/providers.yaml as the base configuration
+ * 2. If config/providers.{environment}.yaml exists, merge its overrides
+ * 3. For testing, if a specific filename is provided, load only that file
  *
  * @param environmentOrFilename - The environment to load config for (default: from NODE_ENV),
  *                                or a specific filename for testing purposes
- * @returns The loaded configuration object (validation happens separately)
+ * @returns The loaded and merged configuration object (validation happens separately)
  * @throws Error if no configuration file can be loaded
  */
 export async function loadConfigFile(
@@ -98,37 +129,45 @@ export async function loadConfigFile(
 
   const env = (environmentOrFilename as 'development' | 'production' | undefined) || getEnvironment();
 
-  // Build fallback chain
-  const fallbackChain = [
+  // Always load the base providers.yaml first
+  const baseFilePath = getConfigPath('providers.yaml');
+  let baseConfig: unknown;
+
+  try {
+    baseConfig = await loadAndParseConfigFile(baseFilePath);
+  } catch (error) {
+    throw new Error(
+      `Failed to load base configuration file: providers.yaml\n` +
+      `Error: ${(error as Error).message}\n\n` +
+      `Please create config/providers.yaml with your provider configuration.`
+    );
+  }
+
+  // Try to load environment-specific overrides and merge them
+  const envOverrideFiles = [
     `providers.${env}.yaml`,
     `providers.${env}.yml`,
-    `providers.yaml`,
-    `providers.yml`,
-    `providers.default.yaml`,
-    `providers.default.yml`,
   ];
 
-  const errors: string[] = [];
-
-  // Try each file in the fallback chain
-  for (const filename of fallbackChain) {
+  for (const filename of envOverrideFiles) {
     const filePath = getConfigPath(filename);
 
     try {
-      const config = await loadAndParseConfigFile(filePath);
-      return config;
+      const overrideConfig = await loadAndParseConfigFile(filePath);
+      // Deep merge the override config with the base config
+      return deepMerge(baseConfig, overrideConfig);
     } catch (error) {
-      errors.push(`- ${filename}: ${(error as Error).message}`);
-      // Continue to next file in chain
+      // Environment override file doesn't exist or can't be loaded - that's OK
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        // File exists but failed to load - log a warning but continue
+        console.warn(`Warning: Failed to load ${filename}, using base config: ${(error as Error).message}`);
+      }
+      // Continue to next file
     }
   }
 
-  // If we get here, no file could be loaded
-  throw new Error(
-    `Failed to load configuration file.\n` +
-    `Attempted files (in order):\n${errors.join('\n')}\n\n` +
-    `Please create one of these files with your provider configuration.`
-  );
+  // No environment overrides found, return base config
+  return baseConfig;
 }
 
 /**
