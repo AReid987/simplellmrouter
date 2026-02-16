@@ -21,12 +21,12 @@ These requirements represent the existing, confirmed capabilities of the SimpleL
 ### Active (Version 1 Scope)
 These are the new requirements for the initial refactoring phase, focusing on externalizing and validating the configuration.
 
-- [ ] **REQ-CFG-01:** The application SHALL load provider and model configurations from an external configuration file (e.g., `config.yaml` or `config.json`).
-- [ ] **REQ-CFG-02:** The configuration system SHALL allow environment variables to override specific values defined in the external configuration file.
-- [ ] **REQ-CFG-03:** The configuration system SHALL support loading different environment-specific configurations (e.g., `development`, `production`) if corresponding files are present.
-- [ ] **REQ-CFG-04:** The application SHALL provide a single, centralized, and type-safe access point (`getConfig()`) to the loaded and validated configuration throughout the codebase.
-- [ ] **REQ-CFG-05:** The loaded configuration SHALL be validated against a defined schema (using Zod) at application startup, and the application SHALL exit if the configuration is invalid.
-- [ ] **REQ-CFG-06:** The configuration object provided via the centralized access point SHALL be immutable to prevent accidental modification during runtime.
+- ✓ **REQ-CFG-01:** The application SHALL load provider and model configurations from an external configuration file (e.g., `config.yaml` or `config.json`).
+- ✓ **REQ-CFG-02:** The configuration system SHALL allow environment variables to override specific values defined in the external configuration file.
+- ✓ **REQ-CFG-03:** The configuration system SHALL support loading different environment-specific configurations (e.g., `development`, `production`) if corresponding files are present.
+- ✓ **REQ-CFG-04:** The application SHALL provide a single, centralized, and type-safe access point (`getConfig()`) to the loaded and validated configuration throughout the codebase.
+- ✓ **REQ-CFG-05:** The loaded configuration SHALL be validated against a defined schema (using Zod) at application startup, and the application SHALL exit if the configuration is invalid.
+- ✓ **REQ-CFG-06:** The configuration object provided via the centralized access point SHALL be immutable to prevent accidental modification during runtime.
 
 ### Out of Scope (Deferred to Future Versions)
 These features are explicitly excluded from Version 1 due to complexity, time constraints, or lower priority for the current refactoring goal.
@@ -39,11 +39,11 @@ These features are explicitly excluded from Version 1 due to complexity, time co
 
 ## Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| REQ-CFG-01 | Phase 1 | Pending |
-| REQ-CFG-02 | Phase 1 | Pending |
-| REQ-CFG-03 | Phase 1 | Pending |
-| REQ-CFG-04 | Phase 1 | Pending |
-| REQ-CFG-05 | Phase 1 | Pending |
-| REQ-CFG-06 | Phase 1 | Pending |
+| Requirement | Phase | Status | Completed |
+|-------------|-------|--------|-----------|
+| REQ-CFG-01 | Phase 1 | Complete | 2026-02-16 |
+| REQ-CFG-02 | Phase 1 | Complete | 2026-02-16 |
+| REQ-CFG-03 | Phase 1 | Complete | 2026-02-16 |
+| REQ-CFG-04 | Phase 1 | Complete | 2026-02-16 |
+| REQ-CFG-05 | Phase 1 | Complete | 2026-02-16 |
+| REQ-CFG-06 | Phase 1 | Complete | 2026-02-16 |
