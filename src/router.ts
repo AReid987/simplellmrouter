@@ -74,7 +74,8 @@ export class RateLimitTracker {
   getRateLimitedModels(): string[] {
     // Clean up expired entries
     const now = Date.now();
-    for (const [modelId, expiry] of this.rateLimitedModels.entries()) {
+    const entries = Array.from(this.rateLimitedModels.entries());
+    for (const [modelId, expiry] of entries) {
       if (now >= expiry) {
         this.rateLimitedModels.delete(modelId);
       }

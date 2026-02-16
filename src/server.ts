@@ -8,7 +8,8 @@
 import { createServer, type IncomingMessage, type ServerResponse, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomUUID } from 'node:crypto';
-import { loadAllProviders, getModel, type Provider } from './providers.js';
+import { getModel, type Provider } from './providers.js';
+import { getConfig, getEnabledProviders } from './config/index.js';
 import { routeRequest, RateLimitTracker, DEFAULT_ROUTER_CONFIG, type RouterConfig, classifyRequest } from './router.js';
 import { logger } from './lib/logging/logger.js';
 
@@ -256,24 +257,22 @@ async function handleChatCompletion(
 /**
  * Start the SimpleLLMRouter server
  */
-export async function startServer(config: ServerConfig = {}): Promise<import('node:http').Server> {
-  const port = config.port || DEFAULT_PORT;
-  const host = config.host || DEFAULT_HOST;
-  const routerConfig = config.routerConfig || DEFAULT_ROUTER_CONFIG;
-  
-  // Load providers from environment
-  logger.info('[Server] Loading providers...');
-  const providers = loadAllProviders();
-  
+export async function startServer(serverConfig: ServerConfig = {}): Promise<import('node:http').Server> {
+  const port = serverConfig.port || DEFAULT_PORT;
+  const host = serverConfig.host || DEFAULT_HOST;
+  const routerConfig = serverConfig.routerConfig || DEFAULT_ROUTER_CONFIG;
+
+  // Get configuration and enabled providers
+  const config = getConfig();
+  const providers = [...getEnabledProviders()]; // Convert readonly to mutable
+
   if (providers.length === 0) {
     logger.error('[Server] ERROR: No providers configured!');
     logger.error('[Server] Add API keys via environment variables:');
-    logger.error('[Server]   GEMINI_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY,');
-    logger.error('[Server]   CEREBRAS_API_KEY, MISTRAL_API_KEY, HUGGINGFACE_API_KEY, VOIDAI_API_KEY');
+    logger.error('[Server]   PROVIDER_MISTRAL_API_KEY, PROVIDER_GROQ_API_KEY,');
+    logger.error('[Server]   PROVIDER_GEMINI_API_KEY, PROVIDER_CEREBRAS_API_KEY, etc.');
     throw new Error('No providers configured. Server cannot start.');
   }
-  
-  logger.info(`[Server] Loaded ${providers.length} providers`);
   
   const rateLimitTracker = new RateLimitTracker();
   
@@ -348,7 +347,9 @@ export async function startServer(config: ServerConfig = {}): Promise<import('no
   });
   
   return new Promise((resolve) => {
-    server.listen(port, host, () => {
+    const serverPort = config.server.port;
+    const serverHost = config.server.host;
+    server.listen(serverPort, serverHost, () => {
       const addr = server.address() as AddressInfo;
       logger.info(`✓ SimpleLLMRouter listening on http://${addr.address}:${addr.port}`);
       logger.info(`\nConfigure OpenClaw to use this router:`);
@@ -367,7 +368,8 @@ export async function startServer(config: ServerConfig = {}): Promise<import('no
       process.exit(0);
     });
     // Force close any open connections
-    for (const socket of connections) {
+    const sockets = Array.from(connections);
+    for (const socket of sockets) {
       socket.destroy();
     }
   });
