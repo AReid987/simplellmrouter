@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-02-16T10:30:00Z",
+  "teams": {
+    "hive-mind": {
+      "system": "claude-code",
+      "framework": "gsd",
+      "status": "ready",
+      "currentPhase": "1",
+      "currentTask": "planning-complete",
+      "agentCount": 15,
+      "lastUpdate": "2026-02-16T10:30:00Z",
+      "files": {
+        "creating": ["src/config/*", "config/*"],
+        "modifying": [],
+        "reading": [".planning/*"]
+      }
+    },
+    "conductor": {
+      "system": "gemini-cli",
+      "framework": "conductor",
+      "status": "executing",
+      "currentPhase": "3",
+      "currentTask": "quota-logging",
+      "testCoverage": 82,
+      "lastUpdate": "2026-02-16T10:25:00Z",
+      "files": {
+        "creating": [],
+        "modifying": ["src/server.ts", "src/router.ts", "src/quota-tracker.ts"],
+        "reading": ["conductor/*"]
+      }
+    }
+  },
+  "conflicts": {
+    "detected": false,
+    "warnings": [],
+    "blockedActions": []
+  },
+  "integration": {
+    "ready": false,
+    "dependencies": [],
+    "checkpoint": null
+  }
+}

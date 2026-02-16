@@ -7,7 +7,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Provider, ModelConfig } from './providers.js';
+import type { Provider, ModelConfig } from './config/schema.js';
 import { logger } from './lib/logging/logger.js';
 
 export interface QuotaUsage {

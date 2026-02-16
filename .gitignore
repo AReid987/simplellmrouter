@@ -10,3 +10,45 @@ config/*.production.yaml
 # But keep example files
 !.env.example
 !config/*.example.yaml
+
+# Dependencies
+node_modules
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Build artifacts
+dist/
+build/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.bak
+~*
+
+# Session files
+*.session.sql
+
+# Internal working directories
+.agents/
+.claude/
+.claude-flow/
+.hive-mind/
+.swarm/
+
+# Documentation build artifacts
+docs/_build/

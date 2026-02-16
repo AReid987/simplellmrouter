@@ -8,8 +8,8 @@
 import { createServer, type IncomingMessage, type ServerResponse, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomUUID } from 'node:crypto';
-import { getModel, type Provider } from './providers.js';
 import { getConfig, getEnabledProviders } from './config/index.js';
+import type { RuntimeProvider, ModelConfig, AppConfig } from './config/schema.js';
 import { routeRequest, RateLimitTracker, DEFAULT_ROUTER_CONFIG, type RouterConfig, classifyRequest } from './router.js';
 import { logger } from './lib/logging/logger.js';
 
@@ -40,7 +40,7 @@ interface ChatCompletionRequest {
  * Make a request to an LLM provider
  */
 async function makeProviderRequest(
-  provider: Provider,
+  provider: RuntimeProvider,
   model: string,
   requestBody: ChatCompletionRequest,
   signal: AbortSignal
@@ -97,9 +97,10 @@ function isProviderError(status: number, body: string): boolean {
 async function handleChatCompletion(
   req: IncomingMessage,
   res: ServerResponse,
-  providers: Provider[],
+  providers: RuntimeProvider[],
   rateLimitTracker: RateLimitTracker,
-  routerConfig: RouterConfig
+  routerConfig: RouterConfig,
+  config: AppConfig  // Add this parameter
 ): Promise<void> {
   const correlationId = randomUUID();
 
@@ -135,7 +136,7 @@ async function handleChatCompletion(
   
   const classification = classifyRequest(requestData.messages);
   logger.info({ correlationId, prompt: classification.sanitizedPrompt }, 'Incoming chat completion request');
-  const routing = routeRequest(classification, providers, rateLimitTracker, routerConfig);
+  const routing = routeRequest(classification, rateLimitTracker, routerConfig);
   
   
   logger.info({ correlationId, ...routing }, `Routing Decision: ${routing.tier} -> ${routing.model} (${routing.reasoning})`);
@@ -157,18 +158,27 @@ async function handleChatCompletion(
     
     logger.info({ correlationId, attempt: i + 1, totalAttempts: modelsToTry.length, modelId }, `Trying ${i + 1}/${modelsToTry.length}: ${modelId}`);
     
-    // Get provider and model config
-    const modelInfo = getModel(providers, modelId);
-    if (!modelInfo) {
-      logger.warn({ correlationId, modelId }, `Model ${modelId} not found, skipping`);
+    // Parse modelId: "provider/model" or just "model"
+    const [providerId, ...modelParts] = modelId.split('/');
+    const modelName = modelParts.join('/');
+
+    // Find provider in config
+    const providerObj = providers.find(p => p.id === providerId);
+    if (!providerObj) {
+      logger.warn({ correlationId, modelId }, `Provider ${providerId} not found, skipping`);
+      continue;
+    }
+
+    // Find model in provider
+    const model = providerObj.models.find(m => m.id === modelName || m.id === modelId);
+    if (!model) {
+      logger.warn({ correlationId, modelId }, `Model ${modelId} not found in provider ${providerId}, skipping`);
       continue;
     }
     
-    const { provider, model } = modelInfo;
-    
     try {
       const response = await makeProviderRequest(
-        provider,
+        providerObj,
         model.id,
         requestData,
         controller.signal
@@ -318,7 +328,7 @@ export async function startServer(serverConfig: ServerConfig = {}): Promise<impo
     // Chat completions (OpenAI-compatible)
     if (req.url === '/v1/chat/completions' && req.method === 'POST') {
       try {
-        await handleChatCompletion(req, res, providers, rateLimitTracker, routerConfig);
+        await handleChatCompletion(req, res, providers, rateLimitTracker, routerConfig, config);
       } catch (error) {
         logger.error({ correlationId: 'N/A', error }, '[Server] Unhandled error in chat completion');
         if (!res.headersSent) {

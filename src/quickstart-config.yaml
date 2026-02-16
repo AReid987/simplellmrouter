@@ -1,0 +1,93 @@
+# OpenClaw Simple Load Balancing Config
+# Save to: ~/.openclaw/config.yaml
+
+# Load Balancing Strategy
+routing:
+  strategy: smart  # Options: smart, round_robin, least_latency, cost_optimized
+  fallback_enabled: true
+  max_retries: 3
+
+# Your LLM Providers (auto-detected from environment variables)
+providers:
+  # 1. Google Gemini (Primary - best free tier)
+  gemini:
+    enabled: true
+    api_key: ${GEMINI_API_KEY}
+    default_model: gemini-2-flash-exp
+    priority: 1
+    max_requests_per_minute: 15
+  
+  # 2. OpenRouter (Free router - 1000 req/day)
+  openrouter:
+    enabled: true
+    api_key: ${OPENROUTER_API_KEY}
+    base_url: https://openrouter.ai/api/v1
+    default_model: openrouter/free
+    priority: 2
+    max_requests_per_minute: 20
+  
+  # 3. Groq (Speed-optimized)
+  groq:
+    enabled: true
+    api_key: ${GROQ_API_KEY}
+    base_url: https://api.groq.com/openai/v1
+    default_model: llama-3.3-70b-versatile
+    priority: 3
+    max_requests_per_minute: 30
+  
+  # 4. Mistral (Function calling - 1B req/month!)
+  mistral:
+    enabled: true
+    api_key: ${MISTRAL_API_KEY}
+    base_url: https://api.mistral.ai/v1
+    default_model: mistral-large-latest
+    priority: 4
+    max_requests_per_minute: 500000  # 500K RPM!
+  
+  # 5. Cerebras (Fast inference)
+  cerebras:
+    enabled: true
+    api_key: ${CEREBRAS_API_KEY}
+    base_url: https://api.cerebras.ai/v1
+    default_model: llama3.1-8b
+    priority: 5
+    max_requests_per_minute: 30
+  
+  # 6. HuggingFace (Free models)
+  huggingface:
+    enabled: true
+    api_key: ${HUGGINGFACE_API_KEY}
+    base_url: https://api-inference.huggingface.co/models
+    default_model: meta-llama/Meta-Llama-3.1-70B-Instruct
+    priority: 6
+    max_requests_per_minute: 10
+  
+  # 7. VoidAI (Cheap alternative)
+  voidai:
+    enabled: true
+    api_key: ${VOIDAI_API_KEY}
+    base_url: https://api.voidai.com/v1
+    default_model: void-1
+    priority: 7
+    max_requests_per_minute: 10
+
+# Gateway Settings
+gateway:
+  host: 0.0.0.0  # Listen on all interfaces (Tailscale accessible)
+  port: 3000
+  websocket_port: 3001
+
+# Tailscale Integration
+tailscale:
+  enabled: true
+  auto_discover: true
+
+# Resource Limits (Intel MacBook 16GB RAM)
+resources:
+  max_memory_gb: 8   # Use half your RAM
+  max_cpu_cores: 4   # Adjust based on your CPU
+
+# Logging
+logging:
+  level: info
+  file: ~/.openclaw/logs/gateway.log

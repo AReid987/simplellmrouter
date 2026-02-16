@@ -1,8 +1,8 @@
 // src/quota-tracker.test.ts
-import { QuotaTracker, QuotaUsage, QuotaAlert } from './quota-tracker';
-import { logger } from './lib/logging/logger';
+import { QuotaTracker, QuotaUsage, QuotaAlert } from './quota-tracker.js';
+import { logger } from './lib/logging/logger.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import type { ModelConfig } from './providers';
+import type { ModelConfig } from './config/schema.js';
 
 // Mock setInterval and clearInterval to prevent background tasks from keeping tests alive
 jest.useFakeTimers();
@@ -14,7 +14,7 @@ jest.mock('node:fs', () => ({
   mkdirSync: jest.fn(),
 }));
 
-jest.mock('./lib/logging/logger', () => ({
+jest.mock('./lib/logging/logger.js', () => ({
   logger: {
     info: jest.fn(),
     error: jest.fn(),

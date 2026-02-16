@@ -1,5 +1,5 @@
 // src/lib/logging/logger.test.ts
-import { logger, initLogger } from './logger';
+import { logger, initLogger } from './logger.js';
 
 describe('Logger', () => {
   it('should be initialized without errors', () => {

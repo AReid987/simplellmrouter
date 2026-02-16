@@ -8,8 +8,7 @@
 import { loadConfigFile } from './loader.js';
 import { applyEnvOverrides } from './env-override.js';
 import { validateConfigOrThrow, formatValidationErrors } from './validator.js';
-import type { AppConfig, Provider as ConfigProvider } from './schema.js';
-import type { Provider } from '../providers.js';
+import type { AppConfig, Provider as ConfigProvider, Provider, RuntimeProvider } from './schema.js';
 
 /**
  * Internal configuration storage (singleton pattern)
@@ -174,7 +173,7 @@ export function getConfig(): Readonly<AppConfig> {
  * @returns Readonly array of enabled providers with API keys
  * @throws ConfigNotInitializedError if initializeConfig() hasn't been called
  */
-export function getEnabledProviders(): Readonly<Provider[]> {
+export function getEnabledProviders(): Readonly<RuntimeProvider[]> {
   const config = getConfig();
 
   // Filter providers by enabled flag and merge with API keys
@@ -185,7 +184,7 @@ export function getEnabledProviders(): Readonly<Provider[]> {
       return {
         ...provider,
         apiKey: providerConfig?.apiKey || '',
-      } as Provider;
+      } as RuntimeProvider;
     });
 
   return enabledProviders;

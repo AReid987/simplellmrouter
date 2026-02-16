@@ -98,3 +98,10 @@ export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export type LoggingConfig = z.infer<typeof LoggingConfigSchema>;
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema>;
+
+/**
+ * Runtime Provider type with API key
+ * Extends Provider with runtime apiKey property from providerConfig.
+ * Returned by getEnabledProviders() for use in server and routing logic.
+ */
+export type RuntimeProvider = Provider & { apiKey: string };

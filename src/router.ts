@@ -5,7 +5,8 @@
  * Based on ClawRouter's 14-dimension scoring adapted for free tier usage.
  */
 
-import type { Provider, ModelConfig } from './providers.js';
+import type { Provider, ModelConfig } from './config/schema.js';
+import { getEnabledProviders } from './config/index.js';
 import { logger } from './lib/logging/logger.js';
 
 
@@ -217,11 +218,13 @@ export function classifyRequest(messages: Array<{ role: string; content: string 
  */
 export function routeRequest(
   classification: RequestClassification,
-  providers: Provider[],
   rateLimitTracker: RateLimitTracker,
   config: RouterConfig = DEFAULT_ROUTER_CONFIG
 ): RoutingDecision {
   const { tier } = classification;
+
+  // Get providers from config system
+  const providers = getEnabledProviders();
 
   // Get all available models
   const allModels = providers.flatMap(provider =>
