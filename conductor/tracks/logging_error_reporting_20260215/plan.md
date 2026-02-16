@@ -54,14 +54,14 @@ This plan outlines the steps to implement a comprehensive logging and error repo
     *   [x] Task: Write Failing Tests: Define tests for accurate logging of quota status changes.
     *   [x] Task: Implement to Pass Tests: Modify quota-tracker.ts and router.ts to log quota before and after each LLM API call.
     *   [x] Task: Verify Coverage: Ensure new logging is covered by tests.
-    *   [ ] Task: Commit Code Changes
-    *   [ ] Task: Attach Task Summary with Git Notes
-    *   [ ] Task: Get and Record Task Commit SHA
-    *   [ ] Task: Commit Plan Update
-*   [ ] Task: Log quota warnings and critical alerts
-    *   [ ] Task: Write Failing Tests: Define tests to trigger and verify logging of quota alerts.
-    *   [ ] Task: Implement to Pass Tests: Update quota-tracker.ts to log warnings (80%) and critical alerts (95%).
-    *   [ ] Task: Verify Coverage: Ensure new logging is covered by tests.
+    *   [x] Task: Commit Code Changes
+    *   [x] Task: Attach Task Summary with Git Notes
+    *   [x] Task: Get and Record Task Commit SHA: 1d005f2ab09903950769e9a9e7d2935f27c54e93
+    *   [x] Task: Commit Plan Update
+*   [x] Task: Log quota warnings and critical alerts
+    *   [x] Task: Write Failing Tests: Define tests to trigger and verify logging of quota alerts.
+    *   [x] Task: Implement to Pass Tests: Update quota-tracker.ts to log warnings (80%) and critical alerts (95%).
+    *   [x] Task: Verify Coverage: Ensure new logging is covered by tests.
     *   [ ] Task: Commit Code Changes
     *   [ ] Task: Attach Task Summary with Git Notes
     *   [ ] Task: Get and Record Task Commit SHA
