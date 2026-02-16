@@ -149,7 +149,7 @@ describe('Configuration File Loader', () => {
     it('should throw descriptive error for empty config file', async () => {
       mockFs.readFile.mockResolvedValueOnce('   \n  \n  ');
 
-      await expect(loadConfigFile('test.yaml')).rejects.toThrow('Configuration file is empty');
+      await expect(loadConfigFile('test.yaml' as string)).rejects.toThrow('Configuration file is empty');
     });
 
     it('should parse YAML configuration', async () => {
@@ -184,7 +184,7 @@ logging:
 
       mockFs.readFile.mockResolvedValueOnce(yamlContent);
 
-      const result = await loadConfigFile('test.yaml');
+      const result = await loadConfigFile('test.yaml' as string);
 
       expect(result).toBeDefined();
       expect((result as any).server.port).toBe(8402);
@@ -194,7 +194,7 @@ logging:
       const jsonContent = JSON.stringify(mockValidConfig, null, 2);
       mockFs.readFile.mockResolvedValueOnce(jsonContent);
 
-      const result = await loadConfigFile('test.json');
+      const result = await loadConfigFile('test.json' as string);
 
       expect(result).toEqual(mockValidConfig);
     });
@@ -202,14 +202,14 @@ logging:
     it('should throw descriptive error for invalid YAML', async () => {
       mockFs.readFile.mockResolvedValueOnce('invalid:\n  - broken\nyaml content');
 
-      await expect(loadConfigFile('test.yaml')).rejects.toThrow('Invalid configuration file format');
+      await expect(loadConfigFile('test.yaml' as string)).rejects.toThrow('Invalid configuration file format');
     });
 
     it('should throw descriptive error for invalid JSON', async () => {
       // This is neither valid YAML nor valid JSON
       mockFs.readFile.mockResolvedValueOnce('{{ invalid: {{ }');
 
-      await expect(loadConfigFile('test.json')).rejects.toThrow('Invalid configuration file format');
+      await expect(loadConfigFile('test.json' as string)).rejects.toThrow('Invalid configuration file format');
     });
   });
 

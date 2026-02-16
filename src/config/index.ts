@@ -83,17 +83,20 @@ export async function initializeConfig(
     const configWithOverrides = applyEnvOverrides(validatedConfig);
 
     // Step 4: Remove providers without API keys
-    const providersWithKeys: Record<string, ConfigProvider> = {};
+    const providersWithKeys: Record<string, Provider> = {};
     const providerIds: string[] = [];
 
-    for (const [providerId, provider] of Object.entries(validatedConfig.providers)) {
-      const providerConfig = validatedConfig.providerConfig?.[providerId];
+    for (const [providerId, configProvider] of Object.entries(configWithOverrides.providers)) {
+      const providerConfig = configWithOverrides.providerConfig?.[providerId];
       const hasApiKey = providerConfig?.apiKey != null && providerConfig.apiKey !== '';
 
-      if (hasApiKey && provider.enabled) {
-        providersWithKeys[providerId] = provider;
+      if (hasApiKey && configProvider.enabled) {
+        providersWithKeys[providerId] = {
+          ...configProvider,
+          apiKey: providerConfig.apiKey,
+        } as Provider;
         providerIds.push(providerId);
-      } else if (!hasApiKey && provider.enabled) {
+      } else if (!hasApiKey && configProvider.enabled) {
         // Provider is enabled but has no API key - skip it
         continue;
       }

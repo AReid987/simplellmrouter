@@ -5,6 +5,7 @@ import { startServer } from './server';
 import { logger } from './lib/logging/logger';
 import { loadAllProviders, getModel } from './providers'; // Import the actual functions to mock them properly
 import fetchMock from 'jest-fetch-mock';
+import { initializeConfig, resetConfig } from './config';
 
 require('jest-fetch-mock').enableMocks();
 
@@ -27,18 +28,79 @@ jest.mock('./providers', () => ({
   getModel: jest.fn(),
 }));
 
+// Mock config module dependencies
+jest.mock('./config/loader', () => ({
+  loadConfigFile: jest.fn(),
+}));
+jest.mock('./config/env-override', () => ({
+  applyEnvOverrides: jest.fn(),
+}));
+jest.mock('./config/validator', () => ({
+  validateConfigOrThrow: jest.fn(),
+}));
+
+import { loadConfigFile } from './config/loader';
+import { applyEnvOverrides } from './config/env-override';
+import { validateConfigOrThrow } from './config/validator';
+
 describe('Server', () => {
   jest.setTimeout(30000); // 30 seconds timeout for all tests in this suite
   let serverInstance: Server;
 
   beforeAll(async () => {
-    // Set up mock return values for providers
+    // Mock the config initialization process
+    (loadConfigFile as jest.Mock).mockResolvedValue({}); // Return empty config
+    (applyEnvOverrides as jest.Mock).mockImplementation((config) => config); // Passthrough
+    (validateConfigOrThrow as jest.Mock).mockImplementation((config) => {
+      // Simulate validation for default providers
+      return {
+        server: { port: 0, host: '127.0.0.1' },
+        providers: {
+          'test-provider': {
+            id: 'test-provider',
+            name: 'Test Provider',
+            baseUrl: 'http://localhost:1234',
+            enabled: true,
+            models: [{
+              id: 'test-model',
+              name: 'Test Model',
+              contextWindow: 4096,
+              maxOutput: 1024,
+              capabilities: [],
+              quota: { quotaSize: 'tiny' },
+              tier: 'simple'
+            },
+            {
+              id: 'rate-limited-model',
+              name: 'Rate Limited Model',
+              contextWindow: 4096,
+              maxOutput: 1024,
+              capabilities: [],
+              quota: { quotaSize: 'tiny' },
+              tier: 'simple'
+            }]
+          }
+        },
+        providerConfig: {
+          'test-provider': {
+            apiKey: 'test-key',
+            enabled: true,
+          }
+        },
+        logging: { level: 'info' }
+      };
+    });
+
+    // Initialize the config once before starting the server
+    await initializeConfig();
+
+    // Set up mock return values for providers that startServer will use
     (loadAllProviders as jest.Mock).mockReturnValue([
       {
         id: 'test-provider',
         name: 'Test Provider',
         baseUrl: 'http://localhost:1234',
-        apiKey: 'test-key',
+        apiKey: 'test-key', // Ensure apiKey is present
         enabled: true,
         models: [{
           id: 'test-model',
@@ -48,14 +110,26 @@ describe('Server', () => {
           capabilities: [],
           quota: { quotaSize: 'tiny' },
           tier: 'simple'
+        },
+        {
+          id: 'rate-limited-model',
+          name: 'Rate Limited Model',
+          contextWindow: 4096,
+          maxOutput: 1024,
+          capabilities: [],
+          quota: { quotaSize: 'tiny' },
+          tier: 'simple'
         }]
       }
     ]);
 
-    (getModel as jest.Mock).mockImplementation((providers: any, modelId: string) => ({
-      provider: providers[0],
-      model: providers[0].models.find((m: any) => m.id === modelId || `${providers[0].id}/${m.id}` === modelId)
-    }));
+    (getModel as jest.Mock).mockImplementation((providers: any, modelId: string) => {
+      const [providerId, modelName] = modelId.split('/');
+      const provider = providers.find((p: any) => p.id === providerId);
+      if (!provider) return null;
+      const model = provider.models.find((m: any) => m.id === modelName);
+      return { provider, model };
+    });
 
     // Start server, but catch potential errors during startup in beforeAll
     try {
@@ -63,7 +137,7 @@ describe('Server', () => {
     } catch (error) {
       console.error('Failed to start server in beforeAll:', error);
       // Ensure serverInstance is null if startup fails to prevent TypeError in afterAll
-      serverInstance = null as any; 
+      serverInstance = null as any;
     }
   });
 
@@ -193,5 +267,84 @@ describe('Server', () => {
     // When & Then
     await expect(startServer({ port: 0 })).rejects.toThrow('No providers configured. Server cannot start.');
     expect(logger.error).toHaveBeenCalledWith('[Server] ERROR: No providers configured!');
+  });
+
+  it('should log rate limit events', async () => {
+    // Given
+    const rateLimitedModelId = 'test-provider/rate-limited-model';
+    (loadAllProviders as jest.Mock).mockReturnValue([
+      {
+        id: 'test-provider',
+        name: 'Test Provider',
+        baseUrl: 'http://localhost:1234',
+        apiKey: 'test-key',
+        enabled: true,
+        models: [
+          {
+            id: 'test-model',
+            name: 'Test Model',
+            contextWindow: 4096,
+            maxOutput: 1024,
+            capabilities: [],
+            quota: { quotaSize: 'tiny' },
+            tier: 'simple'
+          },
+          {
+            id: 'rate-limited-model',
+            name: 'Rate Limited Model',
+            contextWindow: 4096,
+            maxOutput: 1024,
+            capabilities: [],
+            quota: { quotaSize: 'tiny' },
+            tier: 'simple'
+          }
+        ]
+      }
+    ]);
+    (getModel as jest.Mock).mockImplementation((providers: any, modelId: string) => {
+        const provider = providers[0];
+        const model = provider.models.find((m: any) => m.id === modelId.split('/')[1]);
+        return { provider, model };
+    });
+
+    // Mock response for rate limited model
+    fetchMock.mockResponseOnce(JSON.stringify({ error: 'rate limited' }), { status: 429 });
+    // Mock response for successful fallback model
+    fetchMock.mockResponseOnce(JSON.stringify({ id: 'chatcmpl-123', object: 'chat.completion', created: 1678888888, model: 'test-model', choices: [{ index: 0, message: { role: 'assistant', content: 'hello' }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } }), { status: 200 });
+
+
+    const requestBody = {
+      model: rateLimitedModelId,
+      messages: [{ role: 'user', content: 'test prompt' }],
+    };
+
+    // When
+    // Make first request expecting 429 (rate limited)
+    fetchMock.mockResponseOnce(JSON.stringify({ error: 'rate limited' }), { status: 429 }); // Mock response for rate limited model
+    fetchMock.mockResponseOnce(JSON.stringify({ id: 'chatcmpl-123', object: 'chat.completion', created: 1678888888, model: 'test-provider/test-model', choices: [{ index: 0, message: { role: 'assistant', content: 'hello' }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } }), { status: 200 }); // Mock response for successful fallback model
+    await request(serverInstance)
+      .post('/v1/chat/completions')
+      .send(requestBody)
+      .expect(200) // The server will try fallback models and eventually succeed
+      .then((res) => res.body);
+
+    // Then
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationId: expect.any(String),
+        modelId: rateLimitedModelId,
+      }),
+      expect.stringContaining('Rate limited:')
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationId: expect.any(String),
+        modelId: rateLimitedModelId,
+        error: 'Provider error',
+        status: 429,
+        errorBody: '{"error":"rate limited"}',
+      }),
+      expect.stringContaining(`Provider error from ${rateLimitedModelId}, trying fallback`)
+    );
   });
 });

@@ -2,8 +2,18 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  testPathIgnorePatterns: ['/node_modules/', '/src/server.test.ts'],
+  transform: {
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
+  },
+  testMatch: ['<rootDir>/src/**/*.test.ts', '<rootDir>/tests/**/*.test.ts'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
 };
