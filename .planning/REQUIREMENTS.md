@@ -36,3 +36,14 @@ These features are explicitly excluded from Version 1 due to complexity, time co
 
 ---
 *Last updated: 2026-02-15 after requirements definition*
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| REQ-CFG-01 | Phase 1 | Pending |
+| REQ-CFG-02 | Phase 1 | Pending |
+| REQ-CFG-03 | Phase 1 | Pending |
+| REQ-CFG-04 | Phase 1 | Pending |
+| REQ-CFG-05 | Phase 1 | Pending |
+| REQ-CFG-06 | Phase 1 | Pending |
