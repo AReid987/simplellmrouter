@@ -32,10 +32,10 @@ This plan outlines the steps to implement a comprehensive logging and error repo
     *   [x] Task: Write Failing Tests: Define tests to verify logging of classification details from router.ts.
     *   [x] Task: Implement to Pass Tests: Update router.ts to log the classified tier and confidence score for each request.
     *   [x] Task: Verify Coverage: Ensure new logging is covered by tests.
-    *   [ ] Task: Commit Code Changes
-    *   [ ] Task: Attach Task Summary with Git Notes
-    *   [ ] Task: Get and Record Task Commit SHA
-    *   [ ] Task: Commit Plan Update
+    *   [x] Task: Commit Code Changes
+    *   [x] Task: Attach Task Summary with Git Notes
+    *   [x] Task: Get and Record Task Commit SHA: bf1439c912b7a48f25846b690f89efc638caa184
+    *   [x] Task: Commit Plan Update
 *   [ ] Task: Log selected model and fallback details
     *   [ ] Task: Write Failing Tests: Define tests to verify logging of model selection and fallback events.
     *   [ ] Task: Implement to Pass Tests: Enhance router.ts to log the initial selected model, reasons for selection, and any fallback models used.

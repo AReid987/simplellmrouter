@@ -113,4 +113,46 @@ describe('Server', () => {
       expect.stringContaining('Routing Decision: SIMPLE')
     );
   });
+
+  it('should log selected model and fallback details', async () => {
+    // Given
+    const requestBody = {
+      model: 'test-provider/test-model',
+      messages: [{ role: 'user', content: 'test prompt' }],
+    };
+
+    // When
+    await request(serverInstance)
+      .post('/v1/chat/completions')
+      .send(requestBody);
+
+    // Then
+    const allInfoCalls = (logger.info as jest.Mock).mock.calls;
+
+    // Check the "Trying" log (e.g., the 3rd or 4th call depending on exact logging)
+    // Find the call that matches "Trying 1/"
+    const tryingCall = allInfoCalls.find((call: any[]) => typeof call[1] === 'string' && call[1].startsWith('Trying 1/'));
+    expect(tryingCall).toBeDefined();
+    expect(tryingCall[0]).toEqual(
+      expect.objectContaining({
+        correlationId: expect.any(String),
+        attempt: 1,
+        totalAttempts: expect.any(Number),
+        modelId: 'test-provider/test-model',
+      })
+    );
+    expect(tryingCall[1]).toEqual(expect.stringContaining('Trying 1/'));
+
+    // Check the "Success" log (this should be the last call if successful)
+    const successCall = allInfoCalls.find((call: any[]) => typeof call[1] === 'string' && call[1].startsWith('Success with'));
+    expect(successCall).toBeDefined();
+    expect(successCall[0]).toEqual(
+      expect.objectContaining({
+        correlationId: expect.any(String),
+        modelId: 'test-provider/test-model',
+        status: expect.any(Number),
+      })
+    );
+    expect(successCall[1]).toEqual(expect.stringContaining('Success with test-provider/test-model'));
+  });
 });
