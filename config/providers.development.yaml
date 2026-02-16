@@ -1,0 +1,25 @@
+# Development Configuration Overrides
+# This file overrides config/providers.yaml for development environment
+
+server:
+  port: 8402
+
+# Enable only a subset of providers for faster development startup
+providers:
+  mistral:
+    enabled: true
+  groq:
+    enabled: true
+  gemini:
+    enabled: true
+  # Others disabled for faster startup
+  cerebras:
+    enabled: false
+  openrouter:
+    enabled: false
+  voidai:
+    enabled: false
+  zai:
+    enabled: false
+  kimi:
+    enabled: false
