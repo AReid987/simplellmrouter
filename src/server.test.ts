@@ -86,4 +86,31 @@ describe('Server', () => {
       'Incoming chat completion request'
     );
   });
+
+  it('should log routing decision with tier and confidence', async () => {
+    // Given
+    const requestBody = {
+      model: 'test-provider/test-model',
+      messages: [{ role: 'user', content: 'test prompt' }],
+    };
+
+    // When
+    await request(serverInstance)
+      .post('/v1/chat/completions')
+      .send(requestBody);
+
+    // Then
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correlationId: expect.any(String),
+        tier: 'SIMPLE',
+        confidence: expect.any(Number),
+        model: expect.any(String),
+        reasoning: expect.any(String),
+        fallbackChain: expect.any(Array),
+        quotaSize: expect.any(String),
+      }),
+      expect.stringContaining('Routing Decision: SIMPLE')
+    );
+  });
 });

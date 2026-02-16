@@ -24,14 +24,14 @@ This plan outlines the steps to implement a comprehensive logging and error repo
     *   [x] Task: Write Failing Tests: Define tests to verify logging of request ID and prompt content.
     *   [x] Task: Implement to Pass Tests: Modify server.ts to generate and log a unique correlation ID for each incoming request and relevant prompt data (sanitized).
     *   [x] Task: Verify Coverage: Ensure new logging is covered by tests.
-    *   [ ] Task: Commit Code Changes
-    *   [ ] Task: Attach Task Summary with Git Notes
-    *   [ ] Task: Get and Record Task Commit SHA
-    *   [ ] Task: Commit Plan Update
-*   [ ] Task: Log classification tier and confidence score
-    *   [ ] Task: Write Failing Tests: Define tests to verify logging of classification details from router.ts.
-    *   [ ] Task: Implement to Pass Tests: Update router.ts to log the classified tier and confidence score for each request.
-    *   [ ] Task: Verify Coverage: Ensure new logging is covered by tests.
+    *   [x] Task: Commit Code Changes
+    *   [x] Task: Attach Task Summary with Git Notes
+    *   [x] Task: Get and Record Task Commit SHA: c50ffa9a380b6e4cc1162205c28fcfe14a2425e9
+    *   [x] Task: Commit Plan Update
+*   [x] Task: Log classification tier and confidence score
+    *   [x] Task: Write Failing Tests: Define tests to verify logging of classification details from router.ts.
+    *   [x] Task: Implement to Pass Tests: Update router.ts to log the classified tier and confidence score for each request.
+    *   [x] Task: Verify Coverage: Ensure new logging is covered by tests.
     *   [ ] Task: Commit Code Changes
     *   [ ] Task: Attach Task Summary with Git Notes
     *   [ ] Task: Get and Record Task Commit SHA
