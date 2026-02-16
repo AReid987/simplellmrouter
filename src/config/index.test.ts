@@ -19,11 +19,79 @@ import {
 } from './index.js';
 import { AppConfigSchema } from './schema.js';
 
+// Mock config module dependencies
+jest.mock('./loader', () => ({
+  loadConfigFile: jest.fn(),
+}));
+jest.mock('./env-override', () => ({
+  applyEnvOverrides: jest.fn(),
+}));
+jest.mock('./validator', () => ({
+  validateConfigOrThrow: jest.fn(),
+}));
+
+import { loadConfigFile } from './loader.js';
+import { applyEnvOverrides } from './env-override.js';
+import { validateConfigOrThrow } from './validator.js';
+
+/**
+ * Test helper function to validate provider structure
+ */
+function validateProvider(provider: unknown, providerId?: string): void {
+  expect(provider).toBeDefined();
+  expect(provider).toBeInstanceOf(Object);
+
+  const p = provider as Record<string, unknown>;
+
+  expect(p.id).toBeDefined();
+  expect(p.name).toBeDefined();
+  expect(p.baseUrl).toBeDefined();
+  expect(p.models).toBeInstanceOf(Array);
+  expect((p.models as unknown[]).length).toBeGreaterThan(0);
+}
+
 describe('Config Module', () => {
   beforeEach(() => {
     // Reset config state before each test
     resetConfig();
     jest.clearAllMocks();
+
+    // Default mock implementation for dependencies
+    (loadConfigFile as jest.Mock).mockResolvedValue({
+      server: { port: 8402, host: 'localhost' },
+      providers: {
+        mistral: {
+          id: 'mistral',
+          name: 'Mistral',
+          baseUrl: 'https://api.mistral.ai/v1',
+          enabled: true,
+          models: [{
+            id: 'mistral-large-latest',
+            name: 'Mistral Large Latest',
+            contextWindow: 128000,
+            maxOutput: 8192,
+            capabilities: ['function-calling', 'reasoning', 'code'],
+            quota: { monthlyRequests: 1000000000, rpm: 500000, quotaSize: 'huge' },
+            tier: 'complex',
+          }],
+        },
+      },
+      providerConfig: {
+        mistral: { apiKey: 'test-key', enabled: true },
+      },
+      logging: { level: 'info', format: 'pretty' },
+    });
+    (applyEnvOverrides as jest.Mock).mockImplementation((config) => {
+      const newConfig = { ...config, providerConfig: { ...(config.providerConfig || {}) } };
+      if (process.env.PROVIDER_MISTRAL_API_KEY) {
+        newConfig.providerConfig.mistral = {
+          ...(newConfig.providerConfig.mistral || {}),
+          apiKey: process.env.PROVIDER_MISTRAL_API_KEY,
+        };
+      }
+      return newConfig;
+    });
+    (validateConfigOrThrow as jest.Mock).mockImplementation((config) => config);
   });
 
   afterEach(() => {
@@ -158,7 +226,7 @@ describe('Config Module', () => {
 
     it('should return config after initialization', async () => {
       // Set up environment with API key to ensure at least one provider loads
-      process.env.PROVIDER_MISTRAL_API_KEY = 'test-key';
+      process.env.PROVIDER_MISTRAL_API_KEY = 'test-api-key';
       process.env.NODE_ENV = 'development';
 
       try {
