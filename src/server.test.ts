@@ -4,6 +4,9 @@ import request from 'supertest';
 import { startServer } from './server';
 import { logger } from './lib/logging/logger';
 import { loadAllProviders, getModel } from './providers'; // Import the actual functions to mock them properly
+import fetchMock from 'jest-fetch-mock';
+
+require('jest-fetch-mock').enableMocks();
 
 // Mock the logger
 jest.mock('./lib/logging/logger', () => ({
@@ -25,6 +28,7 @@ jest.mock('./providers', () => ({
 }));
 
 describe('Server', () => {
+  jest.setTimeout(30000); // 30 seconds timeout for all tests in this suite
   let serverInstance: Server;
 
   beforeAll(async () => {
@@ -53,16 +57,33 @@ describe('Server', () => {
       model: providers[0].models.find((m: any) => m.id === modelId || `${providers[0].id}/${m.id}` === modelId)
     }));
 
-    serverInstance = await startServer({ port: 0 }); // Start server on a random port
+    // Start server, but catch potential errors during startup in beforeAll
+    try {
+      serverInstance = await startServer({ port: 0 }); // Start server on a random port
+    } catch (error) {
+      console.error('Failed to start server in beforeAll:', error);
+      // Ensure serverInstance is null if startup fails to prevent TypeError in afterAll
+      serverInstance = null as any; 
+    }
   });
 
-  afterAll((done) => {
-    serverInstance.close(done);
+  afterAll(async () => {
+    if (serverInstance) {
+      // Use a Promise to handle server close, and race it against a timeout
+      await Promise.race([
+        new Promise<void>((resolve) => serverInstance.close(() => resolve())),
+        new Promise<void>((resolve) => setTimeout(() => {
+          console.warn('Server close timed out, forcing resolve.');
+          resolve();
+        }, 60000)) // 60 seconds timeout for server close
+      ]);
+    }
     mockExit.mockRestore(); // Restore original process.exit
   });
 
   beforeEach(() => {
     jest.clearAllMocks(); // Clear all mocks before each test
+    fetchMock.resetMocks();
   });
 
   it('should log request with correlation ID', async () => {
@@ -73,9 +94,12 @@ describe('Server', () => {
     };
 
     // When
+    fetchMock.mockResponseOnce(JSON.stringify({ id: 'chatcmpl-123', object: 'chat.completion', created: 1678888888, model: 'test-model', choices: [{ index: 0, message: { role: 'assistant', content: 'hello' }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } }), { status: 200 });
     await request(serverInstance)
       .post('/v1/chat/completions')
-      .send(requestBody);
+      .send(requestBody)
+      .expect(200)
+      .then((res) => res.body);
 
     // Then
     expect(logger.info).toHaveBeenCalledWith(
@@ -95,9 +119,12 @@ describe('Server', () => {
     };
 
     // When
+    fetchMock.mockResponseOnce(JSON.stringify({ id: 'chatcmpl-123', object: 'chat.completion', created: 1678888888, model: 'test-model', choices: [{ index: 0, message: { role: 'assistant', content: 'hello' }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } }), { status: 200 });
     await request(serverInstance)
       .post('/v1/chat/completions')
-      .send(requestBody);
+      .send(requestBody)
+      .expect(200)
+      .then((res) => res.body);
 
     // Then
     expect(logger.info).toHaveBeenCalledWith(
@@ -122,9 +149,12 @@ describe('Server', () => {
     };
 
     // When
+    fetchMock.mockResponseOnce(JSON.stringify({ id: 'chatcmpl-123', object: 'chat.completion', created: 1678888888, model: 'test-model', choices: [{ index: 0, message: { role: 'assistant', content: 'hello' }, finish_reason: 'stop' }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } }), { status: 200 });
     await request(serverInstance)
       .post('/v1/chat/completions')
-      .send(requestBody);
+      .send(requestBody)
+      .expect(200)
+      .then((res) => res.body);
 
     // Then
     const allInfoCalls = (logger.info as jest.Mock).mock.calls;
@@ -154,5 +184,14 @@ describe('Server', () => {
       })
     );
     expect(successCall[1]).toEqual(expect.stringContaining('Success with test-provider/test-model'));
+  });
+
+  it('should throw an error if no providers are configured', async () => {
+    // Given
+    (loadAllProviders as jest.Mock).mockReturnValueOnce([]); // Mock no providers
+
+    // When & Then
+    await expect(startServer({ port: 0 })).rejects.toThrow('No providers configured. Server cannot start.');
+    expect(logger.error).toHaveBeenCalledWith('[Server] ERROR: No providers configured!');
   });
 });

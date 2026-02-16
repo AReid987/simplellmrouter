@@ -5,12 +5,14 @@
  * Integrates seamlessly with OpenClaw.
  */
 
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { loadAllProviders, getModel, type Provider } from './providers.js';
 import { routeRequest, RateLimitTracker, DEFAULT_ROUTER_CONFIG, type RouterConfig, classifyRequest } from './router.js';
 import { logger } from './lib/logging/logger.js';
+
+const connections = new Set<import('node:net').Socket>();
 
 const DEFAULT_PORT = 8402;
 const DEFAULT_HOST = '127.0.0.1';
@@ -268,7 +270,7 @@ export async function startServer(config: ServerConfig = {}): Promise<import('no
     logger.error('[Server] Add API keys via environment variables:');
     logger.error('[Server]   GEMINI_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY,');
     logger.error('[Server]   CEREBRAS_API_KEY, MISTRAL_API_KEY, HUGGINGFACE_API_KEY, VOIDAI_API_KEY');
-    process.exit(1);
+    throw new Error('No providers configured. Server cannot start.');
   }
   
   logger.info(`[Server] Loaded ${providers.length} providers`);
@@ -320,13 +322,17 @@ export async function startServer(config: ServerConfig = {}): Promise<import('no
         await handleChatCompletion(req, res, providers, rateLimitTracker, routerConfig);
       } catch (error) {
         logger.error({ correlationId: 'N/A', error }, '[Server] Unhandled error in chat completion');
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: {
-            message: error instanceof Error ? error.message : String(error),
-            type: 'server_error'
-          }
-        }));
+        if (!res.headersSent) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: {
+              message: error instanceof Error ? error.message : String(error),
+              type: 'server_error'
+            }
+          }));
+        } else {
+          logger.error({ correlationId: 'N/A', error }, '[Server] Headers already sent, cannot send error response.');
+        }
       }
       return;
     }
@@ -334,6 +340,11 @@ export async function startServer(config: ServerConfig = {}): Promise<import('no
     // Not found
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
+  });
+
+  server.on('connection', (socket) => {
+    connections.add(socket);
+    socket.on('close', () => connections.delete(socket));
   });
   
   return new Promise((resolve) => {
@@ -355,5 +366,9 @@ export async function startServer(config: ServerConfig = {}): Promise<import('no
       logger.info('[Server] Server closed');
       process.exit(0);
     });
+    // Force close any open connections
+    for (const socket of connections) {
+      socket.destroy();
+    }
   });
 }

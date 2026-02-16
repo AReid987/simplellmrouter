@@ -36,24 +36,24 @@ This plan outlines the steps to implement a comprehensive logging and error repo
     *   [x] Task: Attach Task Summary with Git Notes
     *   [x] Task: Get and Record Task Commit SHA: bf1439c912b7a48f25846b690f89efc638caa184
     *   [x] Task: Commit Plan Update
-*   [ ] Task: Log selected model and fallback details
-    *   [ ] Task: Write Failing Tests: Define tests to verify logging of model selection and fallback events.
-    *   [ ] Task: Implement to Pass Tests: Enhance router.ts to log the initial selected model, reasons for selection, and any fallback models used.
-    *   [ ] Task: Verify Coverage: Ensure new logging is covered by tests.
-    *   [ ] Task: Commit Code Changes
-    *   [ ] Task: Attach Task Summary with Git Notes
-    *   [ ] Task: Get and Record Task Commit SHA
-    *   [ ] Task: Commit Plan Update
-*   [ ] Task: Conductor - User Manual Verification 'Routing Decision Logging' (Protocol in workflow.md)
+*   [x] Task: Log selected model and fallback details
+    *   [x] Task: Write Failing Tests: Define tests to verify logging of model selection and fallback events.
+    *   [x] Task: Implement to Pass Tests: Enhance router.ts to log the initial selected model, reasons for selection, and any fallback models used.
+    *   [x] Task: Verify Coverage: Ensure new logging is covered by tests.
+    *   [x] Task: Commit Code Changes
+    *   [x] Task: Attach Task Summary with Git Notes
+    *   [x] Task: Get and Record Task Commit SHA: 1674a7fc0e32cc0f0ad0e8a564cbfd25263c04e1
+    *   [x] Task: Commit Plan Update
+*   [x] Task: Conductor - User Manual Verification 'Routing Decision Logging' (Protocol in workflow.md)
 
 ## Phase 3: Quota and Rate Limit Logging
 
 ### Tasks:
 
-*   [ ] Task: Log quota usage before and after LLM calls
-    *   [ ] Task: Write Failing Tests: Define tests for accurate logging of quota status changes.
-    *   [ ] Task: Implement to Pass Tests: Modify quota-tracker.ts and router.ts to log quota before and after each LLM API call.
-    *   [ ] Task: Verify Coverage: Ensure new logging is covered by tests.
+*   [x] Task: Log quota usage before and after LLM calls
+    *   [x] Task: Write Failing Tests: Define tests for accurate logging of quota status changes.
+    *   [x] Task: Implement to Pass Tests: Modify quota-tracker.ts and router.ts to log quota before and after each LLM API call.
+    *   [x] Task: Verify Coverage: Ensure new logging is covered by tests.
     *   [ ] Task: Commit Code Changes
     *   [ ] Task: Attach Task Summary with Git Notes
     *   [ ] Task: Get and Record Task Commit SHA
