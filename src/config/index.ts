@@ -56,14 +56,15 @@ export class ConfigAlreadyInitializedError extends Error {
  * 4. Filter out providers without API keys
  *
  * @param options - Initialization options
- * @param options.environment - Environment to load config for ('development' | 'production')
+ * @param options.environment - Environment to load config for ('development' | 'production'),
+ *                             or a specific config filename for testing (e.g., 'test-config.yaml')
  * @returns The validated and initialized configuration
  * @throws ConfigAlreadyInitializedError if already initialized
  * @throws Error if configuration file cannot be loaded
  * @throws Error with formatted validation errors if config is invalid
  */
 export async function initializeConfig(
-  options?: { environment?: 'development' | 'production' }
+  options?: { environment?: 'development' | 'production' | string }
 ): Promise<AppConfig> {
   // Check if already initialized (singleton pattern)
   if (isInitialized) {
@@ -104,7 +105,7 @@ export async function initializeConfig(
 
     // Store filtered providers
     internalConfig = {
-      ...validatedConfig,
+      ...configWithOverrides,  // Use configWithOverrides to preserve providerConfig from env vars
       providers: providersWithKeys,
     };
 

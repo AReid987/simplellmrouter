@@ -85,7 +85,13 @@ export async function loadConfigFile(
   environmentOrFilename?: 'development' | 'production' | string
 ): Promise<unknown> {
   // If it looks like a filename (contains a dot), use it directly
+  // Check if it's an absolute path or contains a dot (but not just 'development' or 'production')
   if (environmentOrFilename && environmentOrFilename.includes('.')) {
+    // If it's an absolute path, use it directly
+    if (environmentOrFilename.startsWith('/')) {
+      return loadAndParseConfigFile(environmentOrFilename);
+    }
+    // Otherwise, treat it as a filename in the config directory
     const filePath = getConfigPath(environmentOrFilename);
     return loadAndParseConfigFile(filePath);
   }
