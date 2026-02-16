@@ -3,9 +3,9 @@ import type { Server } from 'node:http';
 import request from 'supertest';
 import { startServer } from './server';
 import { logger } from './lib/logging/logger';
-import { loadAllProviders, getModel } from './providers'; // Import the actual functions to mock them properly
+import { getModel } from './providers'; // Import getModel for utility function
 import fetchMock from 'jest-fetch-mock';
-import { initializeConfig, resetConfig } from './config';
+import { initializeConfig, resetConfig, getConfig, getEnabledProviders } from './config';
 
 require('jest-fetch-mock').enableMocks();
 
@@ -22,9 +22,8 @@ jest.mock('./lib/logging/logger', () => ({
 // Mock process.exit to prevent it from terminating the test runner
 const mockExit = jest.spyOn(process, 'exit').mockImplementation((() => {}) as any);
 
-// Mock providers.js
+// Mock providers.js for getModel utility function
 jest.mock('./providers', () => ({
-  loadAllProviders: jest.fn(),
   getModel: jest.fn(),
 }));
 
@@ -37,6 +36,12 @@ jest.mock('./config/env-override', () => ({
 }));
 jest.mock('./config/validator', () => ({
   validateConfigOrThrow: jest.fn(),
+}));
+jest.mock('./config/index', () => ({
+  initializeConfig: jest.fn(),
+  resetConfig: jest.fn(),
+  getConfig: jest.fn(),
+  getEnabledProviders: jest.fn(),
 }));
 
 import { loadConfigFile } from './config/loader';
@@ -91,11 +96,46 @@ describe('Server', () => {
       };
     });
 
-    // Initialize the config once before starting the server
-    await initializeConfig();
+    // Mock getConfig and getEnabledProviders
+    (getConfig as jest.Mock).mockReturnValue({
+      server: { port: 0, host: '127.0.0.1' },
+      providers: {
+        'test-provider': {
+          id: 'test-provider',
+          name: 'Test Provider',
+          baseUrl: 'http://localhost:1234',
+          enabled: true,
+          models: [{
+            id: 'test-model',
+            name: 'Test Model',
+            contextWindow: 4096,
+            maxOutput: 1024,
+            capabilities: [],
+            quota: { quotaSize: 'tiny' },
+            tier: 'simple'
+          },
+          {
+            id: 'rate-limited-model',
+            name: 'Rate Limited Model',
+            contextWindow: 4096,
+            maxOutput: 1024,
+            capabilities: [],
+            quota: { quotaSize: 'tiny' },
+            tier: 'simple'
+          }]
+        }
+      },
+      providerConfig: {
+        'test-provider': {
+          apiKey: 'test-key',
+          enabled: true,
+        }
+      },
+      logging: { level: 'info' }
+    });
 
-    // Set up mock return values for providers that startServer will use
-    (loadAllProviders as jest.Mock).mockReturnValue([
+    // Set up mock return values for getEnabledProviders
+    (getEnabledProviders as jest.Mock).mockReturnValue([
       {
         id: 'test-provider',
         name: 'Test Provider',
@@ -153,6 +193,7 @@ describe('Server', () => {
       ]);
     }
     mockExit.mockRestore(); // Restore original process.exit
+    resetConfig(); // Reset config state after tests
   });
 
   beforeEach(() => {
@@ -262,7 +303,7 @@ describe('Server', () => {
 
   it('should throw an error if no providers are configured', async () => {
     // Given
-    (loadAllProviders as jest.Mock).mockReturnValueOnce([]); // Mock no providers
+    (getEnabledProviders as jest.Mock).mockReturnValueOnce([]); // Mock no providers
 
     // When & Then
     await expect(startServer({ port: 0 })).rejects.toThrow('No providers configured. Server cannot start.');
@@ -272,7 +313,7 @@ describe('Server', () => {
   it('should log rate limit events', async () => {
     // Given
     const rateLimitedModelId = 'test-provider/rate-limited-model';
-    (loadAllProviders as jest.Mock).mockReturnValue([
+    (getEnabledProviders as jest.Mock).mockReturnValue([
       {
         id: 'test-provider',
         name: 'Test Provider',
