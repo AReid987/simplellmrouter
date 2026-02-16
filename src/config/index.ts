@@ -8,7 +8,8 @@
 import { loadConfigFile } from './loader.js';
 import { applyEnvOverrides } from './env-override.js';
 import { validateConfigOrThrow, formatValidationErrors } from './validator.js';
-import type { AppConfig, Provider } from './schema.js';
+import type { AppConfig, Provider as ConfigProvider } from './schema.js';
+import type { Provider } from '../providers.js';
 
 /**
  * Internal configuration storage (singleton pattern)
@@ -82,7 +83,7 @@ export async function initializeConfig(
     const configWithOverrides = applyEnvOverrides(validatedConfig);
 
     // Step 4: Remove providers without API keys
-    const providersWithKeys: Record<string, Provider> = {};
+    const providersWithKeys: Record<string, ConfigProvider> = {};
     const providerIds: string[] = [];
 
     for (const [providerId, provider] of Object.entries(validatedConfig.providers)) {
@@ -156,16 +157,25 @@ export function getConfig(): Readonly<AppConfig> {
  * and have API keys available. Providers without API keys are automatically
  * filtered out during initialization.
  *
- * @returns Readonly array of enabled providers
+ * The returned providers include the apiKey merged from providerConfig,
+ * making them compatible with the existing Provider interface from providers.ts.
+ *
+ * @returns Readonly array of enabled providers with API keys
  * @throws ConfigNotInitializedError if initializeConfig() hasn't been called
  */
 export function getEnabledProviders(): Readonly<Provider[]> {
   const config = getConfig();
 
-  // Filter providers by enabled flag
-  const enabledProviders = Object.values(config.providers).filter(
-    (provider) => provider.enabled === true
-  );
+  // Filter providers by enabled flag and merge with API keys
+  const enabledProviders = Object.values(config.providers)
+    .filter((provider) => provider.enabled === true)
+    .map((provider) => {
+      const providerConfig = config.providerConfig?.[provider.id];
+      return {
+        ...provider,
+        apiKey: providerConfig?.apiKey || '',
+      } as Provider;
+    });
 
   return enabledProviders;
 }
