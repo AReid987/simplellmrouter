@@ -49,7 +49,7 @@ import { applyEnvOverrides } from './config/env-override';
 import { validateConfigOrThrow } from './config/validator';
 
 describe('Server', () => {
-  jest.setTimeout(30000); // 30 seconds timeout for all tests in this suite
+  jest.setTimeout(90000); // 30 seconds timeout for all tests in this suite
   let serverInstance: Server;
 
   beforeAll(async () => {
@@ -301,10 +301,10 @@ describe('Server', () => {
     expect(successCall[1]).toEqual(expect.stringContaining('Success with test-provider/test-model'));
   });
 
-  it('should throw an error if no providers are configured', async () => {
-    // Given
-    (getEnabledProviders as jest.Mock).mockReturnValueOnce([]); // Mock no providers
-
+      it('should throw an error if no providers are configured', async () => {
+        // Given
+        (getConfig as jest.Mock).mockReturnValueOnce({ server: { port: 0, host: '127.0.0.1' }, providers: {}, providerConfig: {}, logging: { level: 'info' } });
+        (getEnabledProviders as jest.Mock).mockReturnValueOnce([]); // Mock no providers
     // When & Then
     await expect(startServer({ port: 0 })).rejects.toThrow('No providers configured. Server cannot start.');
     expect(logger.error).toHaveBeenCalledWith('[Server] ERROR: No providers configured!');

@@ -31,6 +31,9 @@ export function applyEnvOverrides(
       continue;
     }
 
+    // DEBUG: Log what we're processing
+    // console.log(`[ENV-OVERRIDE] Processing: ${key} = ${value?.substring(0, 10)}...`);
+
     // Parse the environment variable key
     // Format: PREFIX_PROVIDERID_PROPERTY or PREFIX_PROVIDERID_PROPERTY_NAME
     const parts = key.split('_');
