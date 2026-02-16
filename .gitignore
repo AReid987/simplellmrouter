@@ -1,0 +1,12 @@
+# Environment variables with secrets
+.env
+.env.local
+.env.*.local
+
+# Config files with sensitive data
+config/production.yaml
+config/*.production.yaml
+
+# But keep example files
+!.env.example
+!config/*.example.yaml
