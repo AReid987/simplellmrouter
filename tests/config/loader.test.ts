@@ -94,46 +94,52 @@ describe('Configuration File Loader', () => {
   describe('loadConfigFile', () => {
     it('should load environment-specific YAML file when NODE_ENV=development', async () => {
       process.env.NODE_ENV = 'development';
-      mockFs.readFile.mockResolvedValueOnce(
-        JSON.stringify(mockValidConfig)
-      );
+      const mockBaseConfig = { ...mockValidConfig, server: { port: 8080, host: 'base-host' } };
+      const mockEnvConfig = { server: { port: 8402, host: 'env-host' } };
+      const mergedConfig = { ...mockBaseConfig, server: { ...mockBaseConfig.server, ...mockEnvConfig.server } };
+
+      mockFs.readFile
+        .mockResolvedValueOnce(JSON.stringify(mockBaseConfig)) // providers.yaml
+        .mockResolvedValueOnce(JSON.stringify(mockEnvConfig)); // providers.development.yaml
 
       const result = await loadConfigFile();
 
-      expect(mockFs.readFile).toHaveBeenCalledTimes(1);
+      expect(mockFs.readFile).toHaveBeenCalledTimes(2);
+      expect(mockFs.readFile).toHaveBeenCalledWith(
+        expect.stringContaining('config/providers.yaml'),
+        'utf-8'
+      );
       expect(mockFs.readFile).toHaveBeenCalledWith(
         expect.stringContaining('config/providers.development.yaml'),
         'utf-8'
       );
-      expect(result).toEqual(mockValidConfig);
+      expect(result).toEqual(mergedConfig);
     });
 
-    it('should fall back to providers.yaml when env-specific file missing', async () => {
+    it('should load base config when environment-specific override files are missing', async () => {
       process.env.NODE_ENV = 'development';
       mockFs.readFile
+        .mockResolvedValueOnce(JSON.stringify(mockValidConfig)) // providers.yaml (base config)
         .mockRejectedValueOnce({ code: 'ENOENT' } as NodeJS.ErrnoException) // providers.development.yaml
-        .mockRejectedValueOnce({ code: 'ENOENT' } as NodeJS.ErrnoException) // providers.development.yml
-        .mockResolvedValueOnce(JSON.stringify(mockValidConfig)); // providers.yaml
+        .mockRejectedValueOnce({ code: 'ENOENT' } as NodeJS.ErrnoException); // providers.development.yml
 
       const result = await loadConfigFile();
 
       expect(mockFs.readFile).toHaveBeenCalledTimes(3);
+      expect(mockFs.readFile).toHaveBeenCalledWith(
+        expect.stringContaining('config/providers.yaml'),
+        'utf-8'
+      );
+      // No specific expectation for .development.yaml or .development.yml as they are rejected
       expect(result).toEqual(mockValidConfig);
     });
 
-    it('should fall back to providers.default.yaml as last resort', async () => {
+    it('should throw descriptive error when providers.yaml is not found', async () => {
       process.env.NODE_ENV = 'development';
       mockFs.readFile
-        .mockRejectedValueOnce({ code: 'ENOENT' } as NodeJS.ErrnoException) // providers.development.yaml
-        .mockRejectedValueOnce({ code: 'ENOENT' } as NodeJS.ErrnoException) // providers.development.yml
-        .mockRejectedValueOnce({ code: 'ENOENT' } as NodeJS.ErrnoException) // providers.yaml
-        .mockRejectedValueOnce({ code: 'ENOENT' } as NodeJS.ErrnoException) // providers.yml
-        .mockResolvedValueOnce(JSON.stringify(mockValidConfig)); // providers.default.yaml
+        .mockRejectedValueOnce({ code: 'ENOENT', message: 'File not found' } as NodeJS.ErrnoException); // providers.yaml
 
-      const result = await loadConfigFile();
-
-      expect(mockFs.readFile).toHaveBeenCalledTimes(5);
-      expect(result).toEqual(mockValidConfig);
+      await expect(loadConfigFile()).rejects.toThrow('Failed to load base configuration file: providers.yaml');
     });
 
     it('should throw descriptive error when no config files exist', async () => {
@@ -143,7 +149,7 @@ describe('Configuration File Loader', () => {
         message: 'File not found',
       } as NodeJS.ErrnoException);
 
-      await expect(loadConfigFile()).rejects.toThrow('Failed to load configuration file');
+      await expect(loadConfigFile()).rejects.toThrow('Failed to load base configuration file');
     });
 
     it('should throw descriptive error for empty config file', async () => {
