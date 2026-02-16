@@ -91,13 +91,20 @@ export async function initializeConfig(
       const providerConfig = configWithOverrides.providerConfig?.[providerId];
       const hasApiKey = providerConfig?.apiKey != null && providerConfig.apiKey !== '';
 
-      if (hasApiKey && configProvider.enabled) {
+      // Check both config file enabled status and providerConfig override
+      // providerConfig.enabled takes precedence over configProvider.enabled
+      const isEnabled = providerConfig?.enabled !== undefined
+        ? providerConfig.enabled
+        : configProvider.enabled;
+
+      if (hasApiKey && isEnabled) {
         providersWithKeys[providerId] = {
           ...configProvider,
+          enabled: true,  // Ensure enabled is true for providers with API keys
           apiKey: providerConfig.apiKey,
         } as Provider;
         providerIds.push(providerId);
-      } else if (!hasApiKey && configProvider.enabled) {
+      } else if (!hasApiKey && isEnabled) {
         // Provider is enabled but has no API key - skip it
         continue;
       }
