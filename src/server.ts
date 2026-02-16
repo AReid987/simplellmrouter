@@ -1,0 +1,359 @@
+/**
+ * SimpleLLMRouter HTTP Proxy Server
+ * 
+ * OpenAI-compatible API that routes requests to optimal LLM provider.
+ * Integrates seamlessly with OpenClaw.
+ */
+
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { randomUUID } from 'node:crypto';
+import { loadAllProviders, getModel, type Provider } from './providers.js';
+import { routeRequest, RateLimitTracker, DEFAULT_ROUTER_CONFIG, type RouterConfig, classifyRequest } from './router.js';
+import { logger } from './lib/logging/logger.js';
+
+const DEFAULT_PORT = 8402;
+const DEFAULT_HOST = '127.0.0.1';
+
+export interface ServerConfig {
+  port?: number;
+  host?: string;
+  routerConfig?: RouterConfig;
+}
+
+interface ChatCompletionRequest {
+  model: string;
+  messages: Array<{
+    role: string;
+    content: string;
+  }>;
+  max_tokens?: number;
+  temperature?: number;
+  stream?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Make a request to an LLM provider
+ */
+async function makeProviderRequest(
+  provider: Provider,
+  model: string,
+  requestBody: ChatCompletionRequest,
+  signal: AbortSignal
+): Promise<Response> {
+  const url = `${provider.baseUrl}/chat/completions`;
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${provider.apiKey}`
+  };
+  
+  // Special handling for different providers
+  if (provider.id === 'openrouter') {
+    headers['HTTP-Referer'] = 'https://github.com/yourusername/simplellmrouter';
+  }
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      ...requestBody,
+      model // Use the provider-specific model ID
+    }),
+    signal
+  });
+  
+  return response;
+}
+
+/**
+ * Check if error indicates a provider issue worth retrying
+ */
+function isProviderError(status: number, body: string): boolean {
+  if (status >= 500) return true; // Server errors
+  
+  if (status === 429) return true; // Rate limit
+  
+  // Check for provider-specific error patterns
+  const errorPatterns = [
+    /insufficient.*balance/i,
+    /quota.*exceeded/i,
+    /rate.*limit/i,
+    /model.*unavailable/i,
+    /service.*unavailable/i,
+    /overloaded/i
+  ];
+  
+  return errorPatterns.some(pattern => pattern.test(body));
+}
+
+/**
+ * Handle /v1/chat/completions requests
+ */
+async function handleChatCompletion(
+  req: IncomingMessage,
+  res: ServerResponse,
+  providers: Provider[],
+  rateLimitTracker: RateLimitTracker,
+  routerConfig: RouterConfig
+): Promise<void> {
+  const correlationId = randomUUID();
+
+  // Read request body
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const body = Buffer.concat(chunks).toString();
+  
+  let requestData: ChatCompletionRequest;
+  try {
+    requestData = JSON.parse(body) as ChatCompletionRequest;
+  } catch {
+    logger.info({ correlationId, error: 'Invalid JSON', body }, 'Request error');
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid JSON' }));
+    return;
+  }
+  
+  // Extract prompt from messages
+  const lastUserMessage = requestData.messages
+    .filter(m => m.role === 'user')
+    .slice(-1)[0];
+  const systemMessage = requestData.messages.find(m => m.role === 'system');
+  
+  if (!lastUserMessage) {
+    logger.info({ correlationId, error: 'No user message found' }, 'Request error');
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'No user message found' }));
+    return;
+  }
+  
+  const classification = classifyRequest(requestData.messages);
+  logger.info({ correlationId, prompt: classification.sanitizedPrompt }, 'Incoming chat completion request');
+  const routing = routeRequest(classification, providers, rateLimitTracker, routerConfig);
+  
+  
+  logger.info({ correlationId, ...routing }, `Routing Decision: ${routing.tier} -> ${routing.model} (${routing.reasoning})`);
+  
+  const modelsToTry = [
+    routing.model,
+    ...routing.fallbackChain
+  ];
+  
+  // Try each model until success
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
+  
+  let lastError: { status: number; body: string } | null = null;
+  
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const modelId = modelsToTry[i];
+    const isLastAttempt = i === modelsToTry.length - 1;
+    
+    logger.info({ correlationId, attempt: i + 1, totalAttempts: modelsToTry.length, modelId }, `Trying ${i + 1}/${modelsToTry.length}: ${modelId}`);
+    
+    // Get provider and model config
+    const modelInfo = getModel(providers, modelId);
+    if (!modelInfo) {
+      logger.warn({ correlationId, modelId }, `Model ${modelId} not found, skipping`);
+      continue;
+    }
+    
+    const { provider, model } = modelInfo;
+    
+    try {
+      const response = await makeProviderRequest(
+        provider,
+        model.id,
+        requestData,
+        controller.signal
+      );
+      
+      if (response.ok) {
+        clearTimeout(timeout);
+        
+        // Forward successful response
+        const responseHeaders: Record<string, string> = {};
+        response.headers.forEach((value, key) => {
+          if (key !== 'transfer-encoding' && key !== 'connection') {
+            responseHeaders[key] = value;
+          }
+        });
+        
+        res.writeHead(response.status, responseHeaders);
+        
+        if (response.body) {
+          const reader = response.body.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(Buffer.from(value));
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        }
+        
+        res.end();
+        logger.info({ correlationId, modelId, status: response.status }, `Success with ${modelId}`);
+        return;
+      }
+      
+      // Request failed
+      const errorBody = await response.text();
+      lastError = { status: response.status, body: errorBody };
+      
+      // Track rate limits
+      if (response.status === 429) {
+        rateLimitTracker.markRateLimited(modelId);
+      }
+      
+      // Check if we should retry with next model
+      if (isProviderError(response.status, errorBody) && !isLastAttempt) {
+        logger.warn({ correlationId, modelId, error: 'Provider error', status: response.status, errorBody }, `Provider error from ${modelId}, trying fallback`);
+        continue;
+      }
+      
+      // Not a retryable error or last attempt
+      break;
+      
+    } catch (error) {
+      lastError = {
+        status: 500,
+        body: error instanceof Error ? error.message : String(error)
+      };
+      
+      if (!isLastAttempt) {
+        logger.error({ correlationId, modelId, error: lastError.body }, `Error from ${modelId}: ${lastError.body}, trying fallback`);
+        continue;
+      }
+      
+      break;
+    }
+  }
+  
+  clearTimeout(timeout);
+  
+  // All models failed
+  const status = lastError?.status || 502;
+  const errorMessage = lastError?.body || 'All models failed';
+  
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    error: {
+      message: errorMessage,
+      type: 'provider_error',
+      code: status
+    }
+  }));
+}
+
+/**
+ * Start the SimpleLLMRouter server
+ */
+export async function startServer(config: ServerConfig = {}): Promise<import('node:http').Server> {
+  const port = config.port || DEFAULT_PORT;
+  const host = config.host || DEFAULT_HOST;
+  const routerConfig = config.routerConfig || DEFAULT_ROUTER_CONFIG;
+  
+  // Load providers from environment
+  logger.info('[Server] Loading providers...');
+  const providers = loadAllProviders();
+  
+  if (providers.length === 0) {
+    logger.error('[Server] ERROR: No providers configured!');
+    logger.error('[Server] Add API keys via environment variables:');
+    logger.error('[Server]   GEMINI_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY,');
+    logger.error('[Server]   CEREBRAS_API_KEY, MISTRAL_API_KEY, HUGGINGFACE_API_KEY, VOIDAI_API_KEY');
+    process.exit(1);
+  }
+  
+  logger.info(`[Server] Loaded ${providers.length} providers`);
+  
+  const rateLimitTracker = new RateLimitTracker();
+  
+  const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+    
+    // Health check
+    if (req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'ok',
+        providers: providers.length,
+        models: providers.reduce((sum, p) => sum + p.models.length, 0)
+      }));
+      return;
+    }
+    
+    // List models (OpenAI-compatible)
+    if (req.url === '/v1/models' && req.method === 'GET') {
+      const models = providers.flatMap(p =>
+        p.models.map(m => ({
+          id: `${p.id}/${m.id}`,
+          object: 'model',
+          created: Date.now(),
+          owned_by: p.id
+        }))
+      );
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ object: 'list', data: models }));
+      return;
+    }
+    
+    // Chat completions (OpenAI-compatible)
+    if (req.url === '/v1/chat/completions' && req.method === 'POST') {
+      try {
+        await handleChatCompletion(req, res, providers, rateLimitTracker, routerConfig);
+      } catch (error) {
+        logger.error({ correlationId: 'N/A', error }, '[Server] Unhandled error in chat completion');
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: {
+            message: error instanceof Error ? error.message : String(error),
+            type: 'server_error'
+          }
+        }));
+      }
+      return;
+    }
+    
+    // Not found
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  });
+  
+  return new Promise((resolve) => {
+    server.listen(port, host, () => {
+      const addr = server.address() as AddressInfo;
+      logger.info(`✓ SimpleLLMRouter listening on http://${addr.address}:${addr.port}`);
+      logger.info(`\nConfigure OpenClaw to use this router:`);
+      logger.info(`  export OPENAI_API_BASE="http://127.0.0.1:${addr.port}/v1"`);
+      logger.info(`  export OPENAI_API_KEY="dummy"`);
+      logger.info(`  openclaw gateway\n`);
+      resolve(server);
+    });
+  });
+  
+  // Graceful shutdown
+  process.on('SIGINT', () => {
+    logger.info('\n[Server] Shutting down...');
+    server.close(() => {
+      logger.info('[Server] Server closed');
+      process.exit(0);
+    });
+  });
+}
