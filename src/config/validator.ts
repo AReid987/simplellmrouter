@@ -90,7 +90,8 @@ export function formatValidationErrors(errors: z.ZodError): string {
   }
 
   // Format provider-specific errors
-  for (const [providerId, providerErrors] of errorsByProvider) {
+  const providerEntries = Array.from(errorsByProvider.entries());
+  for (const [providerId, providerErrors] of providerEntries) {
     const displayName = providerId.startsWith('providerConfig:')
       ? `Provider config '${providerId.replace('providerConfig:', '')}'`
       : `Provider '${providerId}'`;
@@ -205,9 +206,9 @@ export function validateConfigOrThrow(rawConfig: unknown): AppConfig {
   const result = validateConfig(rawConfig);
 
   if (!result.success) {
-    const message = formatValidationErrors(result.errors);
+    const message = formatValidationErrors((result as { success: false; errors: z.ZodError }).errors);
     throw new Error(message);
   }
 
-  return result.data;
+  return (result as { success: true; data: AppConfig }).data;
 }
