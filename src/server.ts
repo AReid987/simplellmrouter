@@ -361,7 +361,7 @@ export async function startServer(serverConfig: ServerConfig = {}): Promise<impo
   });
   
   // Graceful shutdown
-  process.on('SIGINT', () => {
+  const shutdownHandler = () => {
     logger.info('\n[Server] Shutting down...');
     server.close(() => {
       logger.info('[Server] Server closed');
@@ -372,5 +372,10 @@ export async function startServer(serverConfig: ServerConfig = {}): Promise<impo
     for (const socket of sockets) {
       socket.destroy();
     }
-  });
+  };
+
+  process.on('SIGINT', shutdownHandler);
+
+  // Store handler for cleanup in tests
+  (server as any)._shutdownHandler = shutdownHandler;
 }
