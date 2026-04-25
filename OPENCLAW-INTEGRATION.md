@@ -1,6 +1,6 @@
 # OpenClaw Integration Guide
 
-**Purpose:** Run SimpleLLMRouter alongside OpenClaw for 24/7 operation with expanded quota  
+**Purpose:** Run SimpleLLMRouter alongside OpenClaw for 24/7 operation with expanded quota
 **Use Case:** Combine multiple free-tier providers to avoid rate limits and quota exhaustion
 
 ---
@@ -43,6 +43,8 @@
 ssh your-server
 
 # Clone the repository
+# Clone the repository
+# Recommended: /opt/simplellmrouter (system-wide) or ~/simplellmrouter (user-specific)
 git clone https://github.com/AReid987/simplellmrouter.git
 cd simplellmrouter
 
@@ -172,6 +174,7 @@ After=network.target
 [Service]
 Type=simple
 User=your-username
+# Adjust path to match your installation location (e.g. /opt/simplellmrouter)
 WorkingDirectory=/home/your-username/simplellmrouter
 ExecStart=/usr/bin/npm start
 Restart=always
@@ -221,8 +224,9 @@ Edit `~/.openclaw/openclaw.json`:
   "agents": {
     "defaults": {
       "model": {
-        "primary": "http://localhost:8402/v1",
-        "apiKey": "not-used"
+        "primary": "llm-router",
+        "apiKey": "not-used",
+        "endpoint": "http://localhost:8402/v1"
       }
     }
   }
@@ -389,10 +393,10 @@ watch -n 5 'curl -s http://localhost:8402/quota'
    ```bash
    # Install PM2
    npm install -g pm2
-   
+
    # Start with PM2
    pm2 start dist/cli.js --name simplellmrouter
-   
+
    # Auto-start on boot
    pm2 startup
    pm2 save
@@ -443,7 +447,7 @@ watch -n 5 'curl -s http://localhost:8402/quota'
   server {
     listen 80;
     server_name router.yourdomain.com;
-    
+
     location / {
       auth_basic "Restricted";
       auth_basic_user_file /etc/nginx/.htpasswd;

@@ -61,6 +61,7 @@ Configuration is validated at startup using Zod schemas. Invalid configuration p
 ### Installation
 
 ```bash
+# Recommended: /opt/simplellmrouter (system-wide) or ~/simplellmrouter (user-specific)
 git clone <repository>
 cd simplellmrouter
 npm install

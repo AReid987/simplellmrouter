@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "anthropics-creating-financial-models": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "a2d9a071239bc8610ba777469430cb3b04b429d083590f84dd88708f4e869387"
+    },
+    "composiohq-content-research-writer": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "30df436f274e8bdd584b5ebe25153684a8f8f7d755b0b7518d9a216f9e6f0d4a"
+    },
+    "jeremylongshore-aggregating-crypto-news": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "5831810d04b6ef46aef9a7dc01f338f75216b00d7f7e369067ddf452a8b457bc"
+    },
+    "ruvnet-agent-researcher": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "89ae32f70197671a8211d5397810e45c2fd50bd36fcdd0d43728ff9ead3abf8b"
+    }
+  }
+}

@@ -3,6 +3,7 @@
  * SimpleLLMRouter CLI
  */
 
+import 'dotenv/config';
 import { startServer } from './server.js';
 import { initializeConfig } from './config/index.js';
 
